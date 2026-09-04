@@ -69,22 +69,6 @@ export type AuditEvent = {
   details: string;
 };
 
-export type VerificationOutcome = {
-  evidence_id: string;
-  case_id: string;
-  verified: boolean;
-  source_exists: boolean;
-  md5_match: boolean;
-  sha256_match: boolean;
-  expected_md5: string;
-  actual_md5: string;
-  expected_sha256: string;
-  actual_sha256: string;
-  size_bytes: number;
-  verified_at_utc: string;
-  message: string;
-};
-
 export type ChainVerification = {
   total_entries: number;
   valid: boolean;
@@ -130,8 +114,9 @@ export const api = {
     call<EvidenceRecord>("ingest_evidence", { input }),
   listEvidence: () => call<EvidenceRecord[]>("list_evidence"),
   verifyEvidence: (evidenceId: string) =>
-    call<VerificationOutcome>("verify_evidence", { evidenceId }),
-  verifyChainOfCustody: () => call<ChainVerification>("verify_chain_of_custody"),
+    call<boolean>("verify_evidence", { evidenceId }),
+  verifyChainOfCustody: () =>
+    call<ChainVerification>("verify_chain_of_custody"),
   listParsers: () => call<ParserInfo[]>("list_parsers"),
   listAuditEvents: (caseId: string) =>
     call<AuditEvent[]>("list_audit_events", { caseId }),
@@ -175,7 +160,7 @@ export const api = {
     }),
   runAiAnalytics: (
     videoPath: string,
-    mode: "motion" | "object" | "face",
+    mode: "motion" | "object",
     outPath?: string,
   ) => call<SidecarResponse>("run_ai_analytics", { videoPath, mode, outPath }),
   generatePdfReport: (

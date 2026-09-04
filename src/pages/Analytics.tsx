@@ -3,10 +3,12 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useActiveCase } from "../hooks/useActiveCase";
 import { api } from "../ipc";
 
+type AnalyticsMode = "motion" | "object";
+
 export default function AnalyticsPage() {
   const { active } = useActiveCase();
   const [videoPath, setVideoPath] = useState<string>("");
-  const [mode, setMode] = useState<"face" | "motion" | "object">("face");
+  const [mode, setMode] = useState<AnalyticsMode>("motion");
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [analyticsResult, setAnalyticsResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +51,9 @@ export default function AnalyticsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-ink-100">Intelligent Video Analytics Suite</h1>
+        <h1 className="text-2xl font-semibold text-ink-100">Analytics</h1>
         <p className="text-sm text-ink-400 mt-1">
-          Automated event detection: facial identification, person/vehicle object tracking, and motion analysis.
+          Optional AI-assisted motion and object detection on extracted clips.
         </p>
       </div>
 
@@ -60,7 +62,9 @@ export default function AnalyticsPage() {
           Forensic Admissibility Notice:
         </div>
         <p className="text-xs text-ink-300 mt-1">
-          AI analytics outputs are investigative aids intended to accelerate CCTV triage. Under Section 65B/63 guidelines, automated detections must be reviewed and confirmed by the forensic examiner before submission into evidence.
+          AI analytics outputs are investigative aids intended to accelerate CCTV
+          triage. Automated detections must be reviewed and confirmed by the
+          forensic examiner before submission into evidence.
         </p>
       </div>
 
@@ -71,10 +75,14 @@ export default function AnalyticsPage() {
       ) : (
         <div className="space-y-6">
           <div className="card space-y-4">
-            <h2 className="text-lg font-semibold text-ink-100">Analytics Configuration</h2>
+            <h2 className="text-lg font-semibold text-ink-100">
+              Analytics Configuration
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2 space-y-1">
-                <label className="text-xs text-ink-400 font-medium">Target Video Clip</label>
+                <label className="text-xs text-ink-400 font-medium">
+                  Target Video Clip
+                </label>
                 <div className="flex gap-2">
                   <input
                     className="input flex-1"
@@ -88,15 +96,18 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-ink-400 font-medium">Analytics Mode</label>
+                <label className="text-xs text-ink-400 font-medium">
+                  Analytics Mode
+                </label>
                 <select
                   className="input w-full"
                   value={mode}
-                  onChange={(e) => setMode(e.target.value as any)}
+                  onChange={(e) => setMode(e.target.value as AnalyticsMode)}
                 >
-                  <option value="face">Face Detection (Haar Cascades)</option>
                   <option value="motion">Motion Detection (Frame Diff)</option>
-                  <option value="object">Object Detection (Persons / Vehicles)</option>
+                  <option value="object">
+                    Object Detection (Persons / Vehicles)
+                  </option>
                 </select>
               </div>
             </div>
@@ -107,10 +118,13 @@ export default function AnalyticsPage() {
                 onClick={runAnalytics}
                 disabled={analyzing || !videoPath}
               >
-                {analyzing ? `Processing ${mode.toUpperCase()} Detections...` : `Run ${mode.toUpperCase()} Analytics`}
+                {analyzing
+                  ? `Processing ${mode.toUpperCase()} Detections...`
+                  : `Run ${mode.toUpperCase()} Analytics`}
               </button>
               <span className="text-xs text-ink-400">
-                Runs locally on CPU/GPU without uploading evidence to any remote server.
+                Runs locally on CPU/GPU without uploading evidence to any remote
+                server.
               </span>
             </div>
           </div>
@@ -129,7 +143,8 @@ export default function AnalyticsPage() {
                     {analyticsResult.mode} Analytics Complete
                   </div>
                   <div className="text-xs text-ink-400 mt-1">
-                    FPS: {analyticsResult.fps} · Total Frames: {analyticsResult.total_frames} · Duration: {analyticsResult.duration_seconds}s
+                    FPS: {analyticsResult.fps ?? "—"} · Total Frames:{" "}
+                    {analyticsResult.total_frames ?? "—"}
                   </div>
                 </div>
                 <div className="text-right">
@@ -153,36 +168,48 @@ export default function AnalyticsPage() {
                           <th className="py-2">Frame</th>
                           <th className="py-2">Detection Type</th>
                           <th className="py-2">Confidence</th>
-                          <th className="py-2">Bounding Coordinates [x, y, w, h]</th>
+                          <th className="py-2">
+                            Bounding Coordinates [x, y, w, h]
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {analyticsResult.events.map((ev: any, idx: number) => (
-                          <tr key={idx} className="border-b border-ink-800 hover:bg-ink-800/40">
-                            <td className="py-2 font-mono text-xs text-ink-200">
-                              {ev.timestamp_utc} ({ev.seconds}s)
-                            </td>
-                            <td className="py-2 text-ink-300">#{ev.frame}</td>
-                            <td className="py-2">
-                              <span className="badge badge-primary text-xs">
-                                {ev.label || ev.event_type}
-                              </span>
-                            </td>
-                            <td className="py-2 font-semibold text-emerald-400">
-                              {Math.round((ev.confidence || 0) * 100)}%
-                            </td>
-                            <td className="py-2 font-mono text-xs text-ink-400">
-                              {ev.bounding_box ? `[${ev.bounding_box.join(", ")}]` : (ev.motion_ratio ? `Ratio: ${ev.motion_ratio}` : "—")}
-                            </td>
-                          </tr>
-                        ))}
+                        {analyticsResult.events.map(
+                          (ev: any, idx: number) => (
+                            <tr
+                              key={idx}
+                              className="border-b border-ink-800 hover:bg-ink-800/40"
+                            >
+                              <td className="py-2 font-mono text-xs text-ink-200">
+                                {ev.timestamp_utc}
+                              </td>
+                              <td className="py-2 text-ink-300">#{ev.frame}</td>
+                              <td className="py-2">
+                                <span className="badge badge-info text-xs">
+                                  {ev.label || ev.event_type}
+                                </span>
+                              </td>
+                              <td className="py-2 font-semibold text-emerald-400">
+                                {Math.round((ev.confidence || 0) * 100)}%
+                              </td>
+                              <td className="py-2 font-mono text-xs text-ink-400">
+                                {ev.bounding_box
+                                  ? `[${ev.bounding_box.join(", ")}]`
+                                  : ev.motion_ratio
+                                  ? `Ratio: ${ev.motion_ratio}`
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
               ) : (
                 <div className="card text-ink-400 text-sm">
-                  No {mode} triggers exceeded the confidence threshold in this video segment.
+                  No {mode} triggers exceeded the confidence threshold in this
+                  video segment.
                 </div>
               )}
             </div>

@@ -4,7 +4,6 @@ import {
   api,
   type EvidenceRecord,
   type IngestEvidenceInput,
-  type VerificationOutcome,
 } from "../ipc";
 import { useActiveCase } from "../hooks/useActiveCase";
 
@@ -12,7 +11,7 @@ export default function EvidencePage() {
   const { active, refresh } = useActiveCase();
   const [items, setItems] = useState<EvidenceRecord[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
-  const [lastVerify, setLastVerify] = useState<VerificationOutcome | null>(null);
+  const [lastVerify, setLastVerify] = useState<boolean | null>(null);
   const [form, setForm] = useState<IngestEvidenceInput>({
     source_path: "",
     evidence_label: "",
@@ -83,7 +82,11 @@ export default function EvidencePage() {
     setVerifying(id);
     setError(null);
     try {
-      setLastVerify(await api.verifyEvidence(id));
+      const ok = await api.verifyEvidence(id);
+      setLastVerify(ok);
+      if (!ok) {
+        setError(`Hash MISMATCH for ${id}`);
+      }
     } catch (e) {
       setError(`Verification failed: ${(e as Error).message}`);
     } finally {
@@ -194,10 +197,10 @@ export default function EvidencePage() {
         </form>
       )}
 
-      {lastVerify && (
+      {lastVerify !== null && (
         <div
           className={`card ${
-            lastVerify.verified
+            lastVerify
               ? "border-emerald-700/50"
               : "border-red-700/50"
           }`}
@@ -205,31 +208,21 @@ export default function EvidencePage() {
           <div className="flex items-center justify-between">
             <div
               className={
-                lastVerify.verified
+                lastVerify
                   ? "text-emerald-300 font-medium"
                   : "text-red-300 font-medium"
               }
             >
-              {lastVerify.evidence_id} —{" "}
-              {lastVerify.verified ? "Verified ✓" : "Verification FAILED ✗"}
+              {lastVerify ? "Hash verified ✓" : "Hash verification FAILED ✗"}
             </div>
             <button className="btn" onClick={() => setLastVerify(null)}>
               Dismiss
             </button>
           </div>
-          <div className="text-sm text-ink-300 mt-2">{lastVerify.message}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 font-mono text-xs text-ink-400 break-all">
-            <div>
-              SHA-256 recorded:{" "}
-              {lastVerify.expected_sha256 || "—"}
-            </div>
-            <div>SHA-256 actual: {lastVerify.actual_sha256 || "—"}</div>
-            <div>MD5 recorded: {lastVerify.expected_md5 || "—"}</div>
-            <div>MD5 actual: {lastVerify.actual_md5 || "—"}</div>
-          </div>
-          <div className="text-xs text-ink-500 mt-2">
-            Verified at {lastVerify.verified_at_utc} (UTC) — result persisted to
-            the case database, hashes table and audit log.
+          <div className="text-sm text-ink-300 mt-2">
+            {lastVerify
+              ? "Re-computed MD5/SHA-256 matches the recorded evidence manifest."
+              : "Re-computed hash does not match the recorded value. Treat the evidence as potentially altered."}
           </div>
         </div>
       )}

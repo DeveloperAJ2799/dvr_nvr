@@ -1,0 +1,21 @@
+# NYAYA Forensics - Python sidecar dependencies
+# All packages below are REAL and exist on PyPI (verified 2026-09-04).
+#
+# Core hashing / EWF
+libewf-python==20240506          # Python bindings for libewf (reads .E01). pip-installable.
+                                  # NOTE: the import name is "libewf", NOT the legacy "pyewf"
+                                  # (pyewf only works if libewf was built with Python bindings).
+# Video / AI
+ultralytics==8.3.201             # YOLOv8n object detection. pip install ultralytics
+opencv-python-headless==4.10.0.84 # headless OpenCV (no GUI deps) for motion detection
+# PDF reports
+reportlab==4.1.0                  # PDF generation with ReportLab
+# Misc
+pyyaml==6.0.2
+
+# External tools reused (NOT reimplemented):
+#   ffmpeg / ffprobe        -> .dav / .264 / MPEG-PS decoding (native DHAV demuxer since FFmpeg 4.2)
+#   dd                     -> raw image acquisition
+#   photorec / scalpel     -> deleted file carving (optional, invoked via subprocess)
+#   hikextractor.py        -> existing Hikvision raw-image parser (github.com/fmpfeifer/hikextractor)
+#   dhfs_extractor         -> existing DHFS4.1 parser (github.com/gbatmobile/dhfs_extractor)

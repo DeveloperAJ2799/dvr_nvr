@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { nyaya, errMsg } from "../ipc";
+import { nyaya, errMsg, type CustodyVerifyResult } from "../ipc";
 import { useWorkspace } from "../App";
 
 export default function ReportPage() {
-  const { outputs } = useWorkspace();
+  const { outputs, caseInfo } = useWorkspace();
   const [paths, setPaths] = useState({
     cased: "",
     hashes: "",
@@ -14,6 +14,22 @@ export default function ReportPage() {
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<string>("");
+  const [chain, setChain] = useState<CustodyVerifyResult | null>(null);
+
+  const verifyChain = async () => {
+    if (!paths.custody) {
+      setChain(null);
+      return;
+    }
+    setBusy("Verifying custody hash-chain…");
+    try {
+      setChain(await nyaya.custodyVerify(paths.custody));
+    } catch (e) {
+      setResult("ERROR: " + errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const set = (k: keyof typeof paths) => (v: string) =>
     setPaths((p) => ({ ...p, [k]: v }));
@@ -55,7 +71,7 @@ export default function ReportPage() {
       cased: outputs["case_json"] ?? "",
       hashes: outputs["hashes_json"] ?? "",
       timeline: "",
-      custody: "",
+      custody: outputs["custody_jsonl"] ?? "",
       out: "nyaya_report.pdf",
     });
   };
@@ -110,6 +126,40 @@ export default function ReportPage() {
       <button className="btn-primary" onClick={generate} disabled={!!busy}>
         {busy || "Generate PDF"}
       </button>
+
+      <section className="card space-y-3">
+        <h3 className="text-sm font-semibold text-slate-200">
+          Chain-of-custody integrity (SHA-256 hash-chained ledger)
+        </h3>
+        <div className="text-xs text-slate-500">
+          Examiner: {caseInfo.examiner || "—"} · Ledger: {paths.custody || "not set"}
+        </div>
+        <button
+          className="btn-secondary"
+          onClick={verifyChain}
+          disabled={!!busy || !paths.custody}
+        >
+          Verify custody chain
+        </button>
+        {chain && (
+          <div
+            className={`rounded border p-3 text-sm ${
+              chain.valid
+                ? "border-emerald-700 bg-emerald-950/40 text-emerald-300"
+                : "border-red-700 bg-red-950/40 text-red-300"
+            }`}
+          >
+            {chain.valid
+              ? `✓ Chain intact — all ${chain.total_entries} entries verified.`
+              : `✗ TAMPERING at seq #${chain.broken_at_seq} — ${chain.message}`}
+            {chain.valid && chain.head_hash && (
+              <div className="mt-1 font-mono text-xs text-slate-400">
+                head: {chain.head_hash.slice(0, 32)}…
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {result && (
         <section className="card">

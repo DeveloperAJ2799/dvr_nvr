@@ -27,9 +27,83 @@ export type TimelineEvent = {
   confidence?: string | number;
 };
 
+export type ConvertedTimestamp = {
+  ok: boolean;
+  raw: string | number;
+  raw_kind: string;
+  utc: string;
+  ist: string;
+  epoch_utc: number;
+  tz_assumption: string;
+  offset_hours: number;
+};
+
+export type CorrelatedTrack = {
+  cameras: string[];
+  event_count: number;
+  span_seconds: number;
+  events: Array<{
+    camera?: string;
+    event?: string;
+    utc?: string;
+    ist?: string;
+    confidence?: string | number;
+  }>;
+};
+
+export type CorrelationResult = {
+  ok: boolean;
+  window_seconds: number;
+  event_count: number;
+  parse_errors: Array<Record<string, unknown>>;
+  events: Array<Record<string, unknown>>;
+  correlated_pairs: Array<{
+    delta_seconds: number;
+    a: { camera?: string; event?: string; utc?: string };
+    b: { camera?: string; event?: string; utc?: string };
+  }>;
+  correlation_count: number;
+  tracks: CorrelatedTrack[];
+  out?: string;
+};
+
+export type CustodyEntry = {
+  seq: number;
+  ts_utc: string;
+  examiner: string;
+  action: string;
+  details: Record<string, unknown>;
+  prev_hash: string;
+  entry_hash: string;
+};
+
+export type CustodyVerifyResult = {
+  ok: boolean;
+  valid: boolean;
+  total_entries: number;
+  broken_at_seq: number | null;
+  head_hash?: string;
+  message: string;
+};
+
+export type DriveInfo = {
+  device: string;
+  index: number;
+  size_bytes: number | null;
+  size_human: string;
+  model?: string;
+};
+
+export type DriveListResult = {
+  ok: boolean;
+  physical_drives: DriveInfo[];
+  volumes: Array<Record<string, unknown>>;
+  note?: string;
+};
+
 /**
- * Thin typed wrapper over the 7 Python-sidecar Tauri commands + info helpers.
- * Every command rejects with `{ message }` when python exits non-zero.
+ * Thin typed wrapper over the Tauri commands. Every forensic command shells
+ * out to Python and rejects with `{ message }` when it exits non-zero.
  */
 export const nyaya = {
   detectVendor: (image_path: string) =>
@@ -53,6 +127,44 @@ export const nyaya = {
 
   runAI: (video: string, eventsPath?: string) =>
     invoke<JsonValue>("run_ai", { video, eventsPath }),
+
+  runAIMode: (video: string, mode: "objects" | "face", eventsPath?: string) =>
+    invoke<JsonValue>("run_ai_mode", { video, mode, eventsPath }),
+
+  // ---- SIH PS additions: drives, timestamps, correlation, custody ----
+  listDrives: () => invoke<DriveListResult>("list_drives"),
+
+  convertDahuaBcd: (bcd: string, assumeUtc = false) =>
+    invoke<ConvertedTimestamp>("timestamp_convert", {
+      dahuaBcd: bcd,
+      assumeUtc,
+    }),
+
+  convertHikEpoch: (epoch: number) =>
+    invoke<ConvertedTimestamp>("timestamp_convert", { hikEpoch: epoch }),
+
+  correlateTimeline: (inputs: string[], windowSeconds = 10, out?: string) =>
+    invoke<CorrelationResult>("timeline_correlate", {
+      inputs,
+      window: windowSeconds,
+      out,
+    }),
+
+  custodyAppend: (
+    ledger: string,
+    examiner: string,
+    action: string,
+    details?: Record<string, unknown>,
+  ) =>
+    invoke<CustodyEntry>("custody_append", {
+      ledger,
+      examiner,
+      action,
+      details: details ? JSON.stringify(details) : undefined,
+    }),
+
+  custodyVerify: (ledger: string) =>
+    invoke<CustodyVerifyResult>("custody_verify", { ledger }),
 
   generateReport: (args: {
     case: string;

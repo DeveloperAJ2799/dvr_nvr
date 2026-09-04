@@ -15,24 +15,35 @@ import sys
 
 CHUNK = 4 * 1024 * 1024
 
-# Priority order matters: most specific marker wins (first hit returned).
+# Priority order matters: longest / most specific OEM mark wins (highest
+# confidence first-hit is chosen by detect()). Covers the 8 SIH PS OEMs:
+# Dahua, CP Plus, Honeywell, HIKVISION, TP-Link, Godrej, Uniview, Matrix
+# (CP Plus & Godrej & Matrix are OEM variants of Dahua/Hikvision engines).
 SIGNATURES = [
-    ("dahua",     b"DHFS",      "DHFS proprietary file system", "dav"),
-    ("cp_plus",   b"CPPLUS",    "CP Plus (Dahua OEM)",          "dav"),
-    ("hikvision", b"HIKVISION", "HIKFS proprietary file system","mp4/hik"),
-    ("godrej",    b"GODREJ",    "Godrej (Hikvision OEM)",       "mp4"),
-    ("matrix",    b"MATRIX",    "Matrix (Hikvision OEM)",       "mp4"),
-    ("uniview",   b"UNIVIEW",   "UFS proprietary file system",  "ps/mp4"),
-    ("tplink",    b"TP-LINK",   "TP-Link VIGI / NVR series",    "mp4/h264"),
-    ("wfs",       b"WFS",       "WFS",                          "h264"),
-    ("ufs",       b"UFS",       "UFS",                          "ps"),
+    # -- long, unambiguous OEM marks first (7-9 bytes) --
+    ("hikvision", b"HIKVISION", "HIKFS proprietary file system",  "mp4/hik",   0.97),
+    ("honeywell", b"HONEYWELL", "Honeywell Security NVR database", "mp4/h264", 0.96),
+    ("honeywell", b"HWSM",      "Honeywell HUSM/PERFORMA DVR DB",  "mp4",      0.90),
+    ("cp_plus",   b"CPPLUS",    "CP Plus (Dahua OEM) DHFS variant", "dav",     0.95),
+    ("godrej",    b"GODREJ",    "Godrej Security (Hikvision OEM)", "mp4",      0.95),
+    ("matrix",    b"MATRIX",    "Matrix Satya (Hikvision OEM)",    "mp4",      0.95),
+    ("uniview",   b"UNIVIEW",   "Uniview UFS/UNF file system",     "ps/mp4",   0.95),
+    ("tplink",    b"TP-LINK",   "TP-Link VIGI / NVR series",       "mp4/h264", 0.95),
+    ("tplink",    b"VIGI",      "TP-Link VIGI camera stream",      "mp4/h264", 0.88),
+    # -- 4-byte container magics --
+    ("dahua",     b"DHAV",      "DHAV per-frame container (FFmpeg dhav demuxer)", "dav", 0.93),
+    ("dahua",     b"DHFS",      "DHFS proprietary file system",    "dav",      0.93),
+    ("hikvision", b"HKVI",      "Hikvision HKVI frame container",  "mp4/hik",  0.93),
+    # -- short/weak marks last (false-positive prone) --
+    ("uniview",   b"WFS\x00",   "Uniview WFS 0.4 file system",     "h264",     0.80),
+    ("uniview",   b"UFS\x00",   "Uniview UFS file system",         "ps",       0.80),
 ]
 
 DISPLAY = {
     "dahua": "Dahua Technology", "cp_plus": "CP Plus (Dahua OEM)",
     "hikvision": "HIKVISION", "godrej": "Godrej (Hikvision OEM)",
     "matrix": "Matrix (Hikvision OEM)", "uniview": "Uniview / UNV",
-    "tplink": "TP-Link", "wfs": "WFS vendor", "ufs": "UFS vendor",
+    "tplink": "TP-Link / VIGI", "honeywell": "Honeywell Security",
 }
 
 
@@ -49,15 +60,27 @@ def read_region(path, max_bytes):
 
 def detect(path, region_mb=20):
     max_bytes = region_mb * 1024 * 1024
-    buf = read_region(path, max_bytes)
+    try:
+        buf = read_region(path, max_bytes)
+    except OSError as exc:
+        return {
+            "ok": False,
+            "vendor": "unknown",
+            "vendor_display": "Unreadable source",
+            "error": "cannot read %s: %s (physical drives may need "
+                     "Administrator)" % (path, exc),
+            "first_bytes_hex": "",
+        }
     hits = []
-    for vendor, magic, desc, fmt in SIGNATURES:
+    for vendor, magic, desc, fmt, conf in SIGNATURES:
         off = buf.find(magic)
         if off != -1:
             hits.append({"vendor": vendor, "magic": magic.decode("latin1"),
-                         "offset": off, "file_system": desc, "video_format": fmt})
+                         "offset": off, "file_system": desc,
+                         "video_format": fmt, "confidence": conf})
     if hits:
-        best = hits[0]
+        # most specific (highest-confidence) mark wins; earliest offset breaks ties
+        best = max(hits, key=lambda h: (h["confidence"], -h["offset"]))
         return {
             "ok": True,
             "vendor": best["vendor"],
@@ -66,6 +89,7 @@ def detect(path, region_mb=20):
             "video_format": best["video_format"],
             "matched_magic": best["magic"],
             "magic_offset": best["offset"],
+            "confidence": best["confidence"],
             "first_bytes_hex": buf[:16].hex(" "),
             "all_hits": hits,
             "note": "Verify the candidate mark against the acquisition writeup in the case ledger.",

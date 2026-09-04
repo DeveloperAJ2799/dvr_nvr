@@ -44,7 +44,13 @@ export default function RecoveryPage() {
     if (!out) return;
     setBusy("Decoding (header strip + remux)…");
     try {
-      const r = await nyaya.decodeVideo(image, out, 32);
+      let r = await nyaya.decodeVideo(image, out, 32);
+      // FFmpeg-missing fallback: pull the DHAV runs out via the native
+      // extraction adapter (no ffmpeg needed for the carve step).
+      const j = r as Record<string, unknown>;
+      if (j && j.ok === false && String(j.error ?? "").includes("ffmpeg")) {
+        r = await nyaya.extractDahua(image, workdir + "/extracted");
+      }
       setRecovery(JSON.stringify(r, null, 2));
       setOutput("decoded_mp4", out);
     } catch (e) {

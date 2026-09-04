@@ -123,5 +123,7 @@ pub fn get_app_info() -> CommandResult<serde_json::Value> {
                            "Godrej", "Uniview", "HIKVISION", "Matrix"],
         "layers": 7,
         "offline": true,
+        "custody_ledger": "SHA-256 hash-chained JSONL",
+        "correlation_window_seconds": 10,
     }))
 }

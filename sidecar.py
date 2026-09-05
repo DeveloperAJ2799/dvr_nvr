@@ -85,7 +85,9 @@ def main(argv=None):
     module, prefix = dispatch[cmd]
     args = prefix + rest
     result = _run(module, args)
-    print(json.dumps(result, indent=2))
+    # Compact JSON: the Rust side (sidecar.rs) scans stdout lines for a JSON
+    # object, so the payload must be a single line.
+    print(json.dumps(result))
     return 0 if result.get("error") is None else 1
 
 

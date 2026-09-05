@@ -45,11 +45,17 @@ pub fn run_python_sidecar(req: SidecarRequest) -> CoreResult<SidecarResponse> {
     let output = cmd.output()?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let json = stdout
-        .lines()
-        .rev()
-        .find(|l| l.trim_start().starts_with('{'))
-        .and_then(|l| serde_json::from_str::<serde_json::Value>(l).ok());
+    // Prefer parsing the entire stdout as one JSON document; fall back to
+    // scanning lines for a JSON object (legacy single-line sidecar output).
+    let json = serde_json::from_str::<serde_json::Value>(stdout.trim())
+        .ok()
+        .or_else(|| {
+            stdout
+                .lines()
+                .rev()
+                .find(|l| l.trim_start().starts_with('{'))
+                .and_then(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        });
 
     Ok(SidecarResponse {
         stdout,
@@ -60,14 +66,60 @@ pub fn run_python_sidecar(req: SidecarRequest) -> CoreResult<SidecarResponse> {
 }
 
 fn find_python() -> Option<String> {
-    for candidate in &["python3", "python", "py"] {
-        if std::process::Command::new(candidate)
-            .arg("--version")
-            .output()
-            .is_ok()
-        {
+    // On Windows, "python3" is often the Microsoft Store app-execution-alias
+    // stub, which runs but prints "Python was not found" and exits with an
+    // error — so prefer "python"/"py" there and always verify the exit status.
+    let candidates: Vec<&str> = if cfg!(windows) {
+        vec!["python", "py", "python3"]
+    } else {
+        vec!["python3", "python"]
+    };
+    for candidate in &candidates {
+        if is_working_python(candidate) {
             return Some((*candidate).to_string());
         }
     }
+    // Fall back to well-known per-user install locations on Windows.
+    if cfg!(windows) {
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            let root = PathBuf::from(local).join("Programs").join("Python");
+            if let Ok(entries) = std::fs::read_dir(&root) {
+                let mut versions: Vec<PathBuf> = entries
+                    .flatten()
+                    .map(|e| e.path().join("python.exe"))
+                    .filter(|p| p.is_file())
+                    .collect();
+                versions.sort();
+                if let Some(python) = versions.pop() {
+                    let python = python.to_string_lossy().to_string();
+                    if is_working_python(&python) {
+                        return Some(python);
+                    }
+                }
+            }
+        }
+    }
     None
+}
+
+fn is_working_python(candidate: &str) -> bool {
+    match std::process::Command::new(candidate)
+        .arg("--version")
+        .output()
+    {
+        Ok(output) => {
+            if !output.status.success() {
+                return false;
+            }
+            let text = format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            // The Store stub reports "Python was not found"; require a real
+            // Python 3 interpreter.
+            text.contains("Python 3")
+        }
+        Err(_) => false,
+    }
 }

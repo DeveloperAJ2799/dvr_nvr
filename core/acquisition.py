@@ -66,7 +66,7 @@ def acquire_raw(image_path, out_dir):
 
 def acquire_e01(image_path, out_dir):
     try:
-        import libewf  # pip install libewf-python
+        import pyewf as libewf  # libewf-python installs its module as "pyewf"
     except ImportError as exc:
         return {
             "source": image_path,

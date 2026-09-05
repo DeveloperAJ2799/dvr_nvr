@@ -3,8 +3,8 @@
 #
 # Core hashing / EWF
 libewf-python==20240506          # Python bindings for libewf (reads .E01). pip-installable.
-                                  # NOTE: the import name is "libewf", NOT the legacy "pyewf"
-                                  # (pyewf only works if libewf was built with Python bindings).
+                                  # NOTE: the import name is "pyewf"
+                                  # (verified 2026-09-05: libewf-python 20240506 installs as pyewf)
 # Video / AI
 ultralytics==8.3.201             # YOLOv8n object detection. pip install ultralytics
 opencv-python-headless==4.10.0.84 # headless OpenCV (no GUI deps) for motion detection

@@ -180,6 +180,13 @@ export default function ExtractionPage() {
                   <div className="text-ink-200">{vendorInfo.note || "Embedded demuxer ready"}</div>
                 </div>
               </div>
+              {vendorInfo.evidence && (
+                <div className="text-xs text-ink-400 mt-3">
+                  Evidence: {vendorInfo.evidence.occurrences} signature hit(s) in the first{" "}
+                  {Math.round((vendorInfo.evidence.scanned_bytes || 0) / 1024)} KB ·{" "}
+                  {vendorInfo.evidence.method}
+                </div>
+              )}
             </div>
           )}
 

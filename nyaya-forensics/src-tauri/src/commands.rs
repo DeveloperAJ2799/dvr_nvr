@@ -17,9 +17,20 @@ pub type CommandResult<T> = Result<T, CommandError>;
 
 /// Resolve the repo root (a few folders up from `src-tauri/src/`).
 pub fn repo_root() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        if cwd.join("core").join("vendor_detect.py").exists() {
+            return cwd;
+        }
+        if cwd.join("nyaya-forensics").join("core").join("vendor_detect.py").exists() {
+            return cwd.join("nyaya-forensics");
+        }
+    }
     let exe = std::env::current_exe().unwrap_or_default();
-    // Debug/Release: <root>/src-tauri/target/{debug,release}/nyaya-forensics.exe
-    // exe(0) -> debug|release(1) -> target(2) -> src-tauri(3) -> <root>(4)
+    for ancestor in exe.ancestors() {
+        if ancestor.join("core").join("vendor_detect.py").exists() {
+            return ancestor.to_path_buf();
+        }
+    }
     exe.ancestors()
         .nth(4)
         .map(|p| p.to_path_buf())

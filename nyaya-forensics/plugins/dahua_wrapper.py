@@ -87,6 +87,26 @@ def native_dhav_extract(image, outdir):
     os.makedirs(outdir, exist_ok=True)
     offs = _scan_magic(image, DHAV_MAGIC)
     if not offs:
+        # Fallback to elementary stream decoder
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from core.decoder import decode
+            dec_out = os.path.join(outdir, "extracted_stream.mp4")
+            res = decode(image, header_bytes=32, out_mp4=dec_out)
+            if res.get("ok"):
+                return {
+                    "ok": True,
+                    "method": "stream-decoder-fallback",
+                    "extracted_files": [{
+                        "path": dec_out,
+                        "size_bytes": res.get("size_bytes", 0),
+                        "relative": os.path.basename(dec_out),
+                        "format": "mp4"
+                    }],
+                    "extracted_count": 1
+                }
+        except Exception:
+            pass
         return {"ok": False, "method": "native-dhav",
                 "error": "no DHAV frame magic found in image"}
     groups = [[offs[0]]]

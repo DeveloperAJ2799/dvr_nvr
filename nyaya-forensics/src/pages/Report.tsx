@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { nyaya, errMsg, type CustodyVerifyResult } from "../ipc";
 import { useWorkspace } from "../App";
 
@@ -51,12 +52,32 @@ export default function ReportPage() {
   const generate = async () => {
     setBusy("Generating court-ready PDF…");
     try {
+      let casePath = paths.cased;
+      if (!casePath) {
+        casePath = "case_auto.json";
+        await writeTextFile(
+          casePath,
+          JSON.stringify(
+            {
+              case_id: caseInfo.case_id || "DEMO-CASE-001",
+              case_name: caseInfo.case_name || "CCTV Forensic Investigation",
+              examiner: caseInfo.examiner || "Forensic Examiner",
+              organization: caseInfo.organization || "Forensic Science Laboratory",
+              timezone: caseInfo.timezone || "Asia/Kolkata (IST, +05:30)",
+              notes: caseInfo.notes || "Auto-generated report from NYAYA Forensics",
+              reported_at_utc: new Date().toISOString(),
+            },
+            null,
+            2,
+          ),
+        );
+      }
       const r = await nyaya.generateReport({
-        case: paths.cased,
+        case: casePath,
         hashes: paths.hashes,
         timeline: paths.timeline,
         custody: paths.custody,
-        out: paths.out,
+        out: paths.out || "nyaya_report.pdf",
       });
       setResult(JSON.stringify(r, null, 2));
     } catch (e) {

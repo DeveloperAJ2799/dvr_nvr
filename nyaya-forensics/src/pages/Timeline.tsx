@@ -31,13 +31,6 @@ function eventsToItems(events: TimelineEvent[]): Item[] {
     });
 }
 
-const SAMPLE: TimelineEvent[] = [
-  { utc: "2026-09-04T06:00:00Z", camera: "CAM-01", event: "person-enter", confidence: 0.92 },
-  { utc: "2026-09-04T06:00:07Z", camera: "CAM-02", event: "vehicle-stop", confidence: 0.87 },
-  { utc: "2026-09-04T06:00:12Z", camera: "CAM-01", event: "face-capture", confidence: 0.81 },
-  { utc: "2026-09-04T06:01:30Z", camera: "CAM-03", event: "motion", confidence: 0.66 },
-];
-
 export default function TimelinePage() {
   const ref = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -80,13 +73,13 @@ export default function TimelinePage() {
   const correlate = async () => {
     setBusy("Normalising timestamps + correlating…");
     setError(null);
+    if (eventFiles.length === 0) {
+      setError("Please add at least one events JSON file to perform cross-camera correlation.");
+      setBusy(null);
+      return;
+    }
     try {
-      // With no files added, run the real engine on the built-in sample
-      // fixture so the ±window correlation is demonstrable end-to-end.
-      const inputs = eventFiles.length > 0
-        ? eventFiles
-        : ["test_evidence/fixtures/timeline.json"];
-      const r = await nyaya.correlateTimeline(inputs, windowSec);
+      const r = await nyaya.correlateTimeline(eventFiles, windowSec);
       setCorr(r);
       render(r.events as TimelineEvent[]);
       setLoaded((l) => l + " · correlated ±" + windowSec + "s");
@@ -129,9 +122,6 @@ export default function TimelinePage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-primary" onClick={() => render(SAMPLE)}>
-            Load sample
-          </button>
           <button className="btn-secondary" onClick={loadFile}>
             Open timeline.json
           </button>
@@ -175,9 +165,7 @@ export default function TimelinePage() {
           </button>
         </div>
         <p className="text-xs text-slate-500">
-          No files added → runs the engine on the built-in sample fixture. AI
-          events, timeline JSON and DHAV-derived events are all normalised to
-          UTC/IST before correlation.
+          Add one or more JSON event files from AI analytics, CCTV event logs, or DHAV-derived extractions. All events are normalised to UTC/IST before cross-camera correlation.
         </p>
         {busy && <div className="text-sm text-amber-400">⏳ {busy}</div>}
         {error && <div className="text-sm text-red-400">⚠ {error}</div>}

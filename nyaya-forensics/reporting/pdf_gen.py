@@ -31,8 +31,29 @@ BLUE = colors.HexColor("#1e3a8a")
 def _load(path):
     if not path or not os.path.exists(path):
         return {}
-    with open(path) as f:
-        return json.load(f)
+    if path.endswith((".bin", ".mp4", ".raw", ".dd", ".img", ".dav", ".hik")):
+        # Direct path to a media or evidence file, synthesize record
+        return {"clips": [{"nal_type": "carved-file", "mp4": path, "size_bytes": os.path.getsize(path)}]}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read().strip()
+    except Exception:
+        return {}
+    if not content:
+        return {}
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Fallback for JSONL (newline-delimited JSON entries, e.g. custody log)
+        entries = []
+        for line in content.splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(json.loads(line))
+                except Exception:
+                    pass
+        return entries
 
 
 def build(case, hashes, timeline, custody, recovery=None, ai=None,

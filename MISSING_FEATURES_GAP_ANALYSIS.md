@@ -190,7 +190,7 @@ Net: **2 of 8 vendors have a byte signature + demo path; 1 has a weak signature;
 - [x] Draft OEM comparative analysis (`nyaya-forensics/docs/OEM_Comparative_Analysis.md` + HTML report) — needs refresh for 8-OEM byte-signature table + DHFS/HIKFS/WFS structure diagrams.
 - [x] Draft architecture doc (HTML report) — needs standalone `ARCHITECTURE.md` for `dvr-forensic-analyzer` (Rust core + sidecar contract + data flow diagram).
 - [ ] Single unified functional prototype (unify the two folders; delete or archive the loser; one README; one build).
-- [ ] Synthetic DVR test images with ground truth (e.g., 50 MB DHFS-like + HIK-like images with known clip count/offsets/timestamps) + `test_data/README.md` explaining expected outputs.
+- [ ] Synthetic DVR test images with ground truth (e.g., 50 MB DHFS-like + HIK-like images with known clip count/offsets/timestamps) + a `test_data/README.md` explaining expected outputs. (Checked-in `test_data/` fixtures were removed; `test_sidecar.sh` now synthesizes its own throwaway input at runtime.)
 - [ ] Real SOP (`docs/SOP.md`): examiner steps (acquire → detect → extract → normalize → correlate → AI → verify → report) mapped to actual buttons/commands.
 - [ ] Validation report with numbers: detection precision, extraction success rate, carve recall/false-positive rate, hash re-verify rate, report-generation success — measured on the synthetic images.
 - [ ] User manual with screenshots for each page + error catalog (ffmpeg missing, models missing, libewf missing, no signatures found).
@@ -218,4 +218,4 @@ Net: **2 of 8 vendors have a byte signature + demo path; 1 has a weak signature;
 - Time/timeline: `dvr-forensic-analyzer/core/timestamps.py:28-68` · `ai/analytics.py:31-35` · `src/pages/Timeline.tsx:16-65` · `src-tauri/src/timeline/timeline.rs:1`
 - AI: `dvr-forensic-analyzer/ai/analytics.py:38-137,140-209,212-328` · `src/pages/Analytics.tsx:6,98-112` · `src/ipc.ts:161-165` · `src-tauri/src/analytics/motion.rs:1` · `object_detection.rs:1` · `face_detection_stub.rs:1` · `sidecar.py:73-75`
 - Custody/reporting: `src-tauri/src/core/audit.rs:44-77,92-129,155-236,240-320` · `src-tauri/src/commands/mod.rs:229-247` · `dvr-forensic-analyzer/report/pdf_report.py:27-132` · `src-tauri/src/report/html_report.rs:1` · `src/pages/Reports.tsx:14-54` · `sidecar.py:31-51`
-- Deps/docs: `dvr-forensic-analyzer/requirements.txt:1-21` · `nyaya-forensics/docs/` (6 files) · `dvr-forensic-analyzer/test_data/` (7 entries, no synthetic FS images)
+- Deps/docs: `dvr-forensic-analyzer/requirements.txt:1-21` · `nyaya-forensics/docs/` (6 files) · former `dvr-forensic-analyzer/test_data/` removed (mock cull 2026-09-04; smoke script synthesizes input in `$TMPDIR`)

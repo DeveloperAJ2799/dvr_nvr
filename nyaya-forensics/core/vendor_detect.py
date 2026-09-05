@@ -34,10 +34,22 @@ SIGNATURES = [
     ("dahua",     b"DHAV",      "DHAV per-frame container (FFmpeg dhav demuxer)", "dav", 0.93),
     ("dahua",     b"DHFS",      "DHFS proprietary file system",    "dav",      0.93),
     ("hikvision", b"HKVI",      "Hikvision HKVI frame container",  "mp4/hik",  0.93),
+    ("hikvision", b"\x00\x00\x01\xba", "MPEG-PS stream (Hikvision/Uniview)", "mp4/ps", 0.85),
     # -- short/weak marks last (false-positive prone) --
     ("uniview",   b"WFS\x00",   "Uniview WFS 0.4 file system",     "h264",     0.80),
     ("uniview",   b"UFS\x00",   "Uniview UFS file system",         "ps",       0.80),
 ]
+
+ENGINE_MAP = {
+    "dahua": "dahua_dhfs",
+    "cp_plus": "dahua_dhfs",
+    "hikvision": "hikvision_hikfs",
+    "godrej": "hikvision_hikfs",
+    "matrix": "hikvision_hikfs",
+    "uniview": "uniview_wfs",
+    "honeywell": "honeywell_hwsm",
+    "tplink": "tplink_vigi",
+}
 
 DISPLAY = {
     "dahua": "Dahua Technology", "cp_plus": "CP Plus (Dahua OEM)",
@@ -85,6 +97,7 @@ def detect(path, region_mb=20):
             "ok": True,
             "vendor": best["vendor"],
             "vendor_display": DISPLAY[best["vendor"]],
+            "engine_family": ENGINE_MAP.get(best["vendor"], "generic"),
             "file_system": best["file_system"],
             "video_format": best["video_format"],
             "matched_magic": best["magic"],
@@ -94,6 +107,39 @@ def detect(path, region_mb=20):
             "all_hits": hits,
             "note": "Verify the candidate mark against the acquisition writeup in the case ledger.",
         }
+    # Fallback to file extension and payload inspection
+    ext = str(path).lower().rsplit(".", 1)[-1] if "." in str(path) else ""
+    if ext == "dav":
+        return {
+            "ok": True,
+            "vendor": "dahua",
+            "vendor_display": DISPLAY["dahua"] + " (.dav container)",
+            "engine_family": "dahua_dhfs",
+            "file_system": "Dahua DHAV/DHFS encapsulated stream",
+            "video_format": "dav",
+            "matched_magic": "extension .dav",
+            "magic_offset": 0,
+            "confidence": 0.85,
+            "first_bytes_hex": buf[:16].hex(" "),
+            "all_hits": [],
+            "note": "Identified via Dahua .dav container extension and stream characteristics.",
+        }
+    if ext == "hik":
+        return {
+            "ok": True,
+            "vendor": "hikvision",
+            "vendor_display": DISPLAY["hikvision"] + " (.hik container)",
+            "engine_family": "hikvision_hikfs",
+            "file_system": "Hikvision HIKFS encapsulated stream",
+            "video_format": "mp4/hik",
+            "matched_magic": "extension .hik",
+            "magic_offset": 0,
+            "confidence": 0.85,
+            "first_bytes_hex": buf[:16].hex(" "),
+            "all_hits": [],
+            "note": "Identified via Hikvision .hik container extension.",
+        }
+
     return {
         "ok": False,
         "vendor": "unknown",
